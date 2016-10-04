@@ -28,7 +28,7 @@ import shortid from 'shortid';
 import SouthPane from './SouthPane';
 import Timer from './Timer';
 
-import SqlEditorLeft from './SqlEditorLeft';
+import SqlEditorTopToolbar from './SqlEditorTopToolbar';
 
 class SqlEditor extends React.Component {
   constructor(props) {
@@ -155,6 +155,7 @@ class SqlEditor extends React.Component {
           style={{ width: '100px' }}
           onClick={this.runQuery.bind(this, false)}
           disabled={!(this.props.queryEditor.dbId)}
+          key={shortid.generate()}
         >
           <i className="fa fa-table" /> Run Query
         </Button>
@@ -168,6 +169,7 @@ class SqlEditor extends React.Component {
           style={{ width: '100px' }}
           onClick={this.runQuery.bind(this, true)}
           disabled={!(this.props.queryEditor.dbId)}
+          key={shortid.generate()}
         >
           <i className="fa fa-table" /> Run Async
         </Button>
@@ -193,12 +195,12 @@ class SqlEditor extends React.Component {
       );
     }
     let limitWarning = null;
-    const rowLimit = 1000;
-    if (this.props.latestQuery && this.props.latestQuery.rows === rowLimit) {
+    if (this.props.latestQuery && this.props.latestQuery.limit_reached) {
       const tooltip = (
         <Tooltip id="tooltip">
           It appears that the number of rows in the query results displayed
-          was limited on the server side to the {rowLimit} limit.
+          was limited on the server side to
+          the {this.props.latestQuery.rows} limit.
         </Tooltip>
       );
       limitWarning = (
@@ -250,7 +252,7 @@ class SqlEditor extends React.Component {
       <div className="SqlEditor" style={{ minHeight: this.sqlEditorHeight() }}>
         <Row>
           <Col md={3}>
-            <SqlEditorLeft queryEditor={this.props.queryEditor} />
+            <SqlEditorTopToolbar queryEditor={this.props.queryEditor} />
           </Col>
           <Col md={9}>
             <AceEditor
