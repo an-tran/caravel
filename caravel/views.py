@@ -1969,6 +1969,26 @@ appbuilder.add_view(
     category_label=__("Sources"),
     category_icon='')
 
+
+class CassandraClusterModelView(CaravelModelView, DeleteMixin):
+    datamodel = SQLAInterface(models.CassandraCluster)
+    add_columns = [
+        'cluster_name', 'contact_hosts', 'contact_port'
+    ]
+    edit_columns = add_columns
+    list_columns = ['cluster_name', 'contact_hosts']
+
+
+appbuilder.add_separator("Sources")
+if config['CASSANDRA_IS_ACTIVE']:
+    appbuilder.add_view(CassandraClusterModelView,
+                        name="Cassandra Clusters",
+                        label="Cassandra Clusters",
+                        icon="fa-cubes",
+                        category="Sources",
+                        category_label=__("Sources"),
+                        category_icon='fa-database')
+
 appbuilder.add_link(
     'SQL Editor',
     href='/caravel/sqllab',

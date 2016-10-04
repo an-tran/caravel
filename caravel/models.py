@@ -72,7 +72,6 @@ class JavascriptPostAggregator(Postaggregator):
 
 
 class AuditMixinNullable(AuditMixin):
-
     """Altering the AuditMixin to use nullable fields
 
     Allows creating objects programmatically outside of CRUD
@@ -125,7 +124,6 @@ class AuditMixinNullable(AuditMixin):
 
 
 class Url(Model, AuditMixinNullable):
-
     """Used for the short url feature"""
 
     __tablename__ = 'url'
@@ -134,7 +132,6 @@ class Url(Model, AuditMixinNullable):
 
 
 class CssTemplate(Model, AuditMixinNullable):
-
     """CSS templates for dashboards"""
 
     __tablename__ = 'css_templates'
@@ -144,14 +141,13 @@ class CssTemplate(Model, AuditMixinNullable):
 
 
 slice_user = Table('slice_user', Model.metadata,
-    Column('id', Integer, primary_key=True),
-    Column('user_id', Integer, ForeignKey('ab_user.id')),
-    Column('slice_id', Integer, ForeignKey('slices.id'))
-)
+                   Column('id', Integer, primary_key=True),
+                   Column('user_id', Integer, ForeignKey('ab_user.id')),
+                   Column('slice_id', Integer, ForeignKey('slices.id'))
+                   )
 
 
 class Slice(Model, AuditMixinNullable):
-
     """A slice is essentially a report or a view on data"""
 
     __tablename__ = 'slices'
@@ -291,9 +287,9 @@ def set_perm(mapper, connection, target):  # noqa
     ds = db.session.query(src_class).filter_by(id=int(id_)).first()
     target.perm = ds.perm
 
+
 sqla.event.listen(Slice, 'before_insert', set_perm)
 sqla.event.listen(Slice, 'before_update', set_perm)
-
 
 dashboard_slices = Table(
     'dashboard_slices', Model.metadata,
@@ -311,7 +307,6 @@ dashboard_user = Table(
 
 
 class Dashboard(Model, AuditMixinNullable):
-
     """The dashboard object!"""
 
     __tablename__ = 'dashboards'
@@ -368,7 +363,6 @@ class Dashboard(Model, AuditMixinNullable):
 
 
 class Queryable(object):
-
     """A common interface to objects that are queryable (tables and datasources)"""
 
     @property
@@ -404,7 +398,6 @@ class Queryable(object):
 
 
 class Database(Model, AuditMixinNullable):
-
     """An ORM object that stores Database related information"""
 
     __tablename__ = 'dbs'
@@ -476,8 +469,8 @@ class Database(Model, AuditMixinNullable):
     def wrap_sql_limit(self, sql, limit=1000):
         qry = (
             select('*')
-            .select_from(TextAsFrom(text(sql), ['*'])
-            .alias('inner_qry')).limit(limit)
+                .select_from(TextAsFrom(text(sql), ['*'])
+                             .alias('inner_qry')).limit(limit)
         )
         return self.compile_sqla_query(qry)
 
@@ -540,17 +533,17 @@ class Database(Model, AuditMixinNullable):
             'mysql': (
                 Grain('Time Column', _('Time Column'), '{col}'),
                 Grain("second", _('second'), "DATE_ADD(DATE({col}), "
-                      "INTERVAL (HOUR({col})*60*60 + MINUTE({col})*60"
-                      " + SECOND({col})) SECOND)"),
+                                             "INTERVAL (HOUR({col})*60*60 + MINUTE({col})*60"
+                                             " + SECOND({col})) SECOND)"),
                 Grain("minute", _('minute'), "DATE_ADD(DATE({col}), "
-                      "INTERVAL (HOUR({col})*60 + MINUTE({col})) MINUTE)"),
+                                             "INTERVAL (HOUR({col})*60 + MINUTE({col})) MINUTE)"),
                 Grain("hour", _('hour'), "DATE_ADD(DATE({col}), "
-                      "INTERVAL HOUR({col}) HOUR)"),
+                                         "INTERVAL HOUR({col}) HOUR)"),
                 Grain('day', _('day'), 'DATE({col})'),
                 Grain("week", _('week'), "DATE(DATE_SUB({col}, "
-                      "INTERVAL DAYOFWEEK({col}) - 1 DAY))"),
+                                         "INTERVAL DAYOFWEEK({col}) - 1 DAY))"),
                 Grain("month", _('month'), "DATE(DATE_SUB({col}, "
-                      "INTERVAL DAYOFMONTH({col}) - 1 DAY))"),
+                                           "INTERVAL DAYOFMONTH({col}) - 1 DAY))"),
             ),
             'sqlite': (
                 Grain('Time Column', _('Time Column'), '{col}'),
@@ -573,25 +566,25 @@ class Database(Model, AuditMixinNullable):
             'mssql': (
                 Grain("Time Column", _('Time Column'), "{col}"),
                 Grain("second", _('second'), "DATEADD(second, "
-                      "DATEDIFF(second, '2000-01-01', {col}), '2000-01-01')"),
+                                             "DATEDIFF(second, '2000-01-01', {col}), '2000-01-01')"),
                 Grain("minute", _('minute'), "DATEADD(minute, "
-                      "DATEDIFF(minute, 0, {col}), 0)"),
+                                             "DATEDIFF(minute, 0, {col}), 0)"),
                 Grain("5 minute", _('5 minute'), "DATEADD(minute, "
-                      "DATEDIFF(minute, 0, {col}) / 5 * 5, 0)"),
+                                                 "DATEDIFF(minute, 0, {col}) / 5 * 5, 0)"),
                 Grain("half hour", _('half hour'), "DATEADD(minute, "
-                      "DATEDIFF(minute, 0, {col}) / 30 * 30, 0)"),
+                                                   "DATEDIFF(minute, 0, {col}) / 30 * 30, 0)"),
                 Grain("hour", _('hour'), "DATEADD(hour, "
-                      "DATEDIFF(hour, 0, {col}), 0)"),
+                                         "DATEDIFF(hour, 0, {col}), 0)"),
                 Grain("day", _('day'), "DATEADD(day, "
-                      "DATEDIFF(day, 0, {col}), 0)"),
+                                       "DATEDIFF(day, 0, {col}), 0)"),
                 Grain("week", _('week'), "DATEADD(week, "
-                      "DATEDIFF(week, 0, {col}), 0)"),
+                                         "DATEDIFF(week, 0, {col}), 0)"),
                 Grain("month", _('month'), "DATEADD(month, "
-                      "DATEDIFF(month, 0, {col}), 0)"),
+                                           "DATEDIFF(month, 0, {col}), 0)"),
                 Grain("quarter", _('quarter'), "DATEADD(quarter, "
-                      "DATEDIFF(quarter, 0, {col}), 0)"),
+                                               "DATEDIFF(quarter, 0, {col}), 0)"),
                 Grain("year", _('year'), "DATEADD(year, "
-                      "DATEDIFF(year, 0, {col}), 0)"),
+                                         "DATEDIFF(year, 0, {col}), 0)"),
             ),
         }
         db_time_grains['redshift'] = db_time_grains['postgresql']
@@ -660,7 +653,6 @@ class Database(Model, AuditMixinNullable):
 
 
 class SqlaTable(Model, Queryable, AuditMixinNullable):
-
     """An ORM object for SqlAlchemy table references"""
 
     type = "table"
@@ -826,8 +818,7 @@ class SqlaTable(Model, Queryable, AuditMixinNullable):
                 text = compiler.visit_column(element, **kw)
                 try:
                     if element.is_literal and hasattr(element.type, 'python_type') and \
-                            type(element.type) is DateTime:
-
+                                    type(element.type) is DateTime:
                         text = text.replace('%%', '%')
                 except NotImplementedError:
                     pass  # Some elements raise NotImplementedError for python_type
@@ -938,7 +929,7 @@ class SqlaTable(Model, Queryable, AuditMixinNullable):
         engine = self.database.get_sqla_engine()
         sql = "{}".format(
             qry.compile(
-                engine, compile_kwargs={"literal_binds": True},),
+                engine, compile_kwargs={"literal_binds": True}, ),
         )
         df = pd.read_sql_query(
             sql=sql,
@@ -974,10 +965,10 @@ class SqlaTable(Model, Queryable, AuditMixinNullable):
                 logging.exception(e)
             dbcol = (
                 db.session
-                .query(TC)
-                .filter(TC.table == self)
-                .filter(TC.column_name == col.name)
-                .first()
+                    .query(TC)
+                    .filter(TC.table == self)
+                    .filter(TC.column_name == col.name)
+                    .first()
             )
             db.session.flush()
             if not dbcol:
@@ -1036,9 +1027,9 @@ class SqlaTable(Model, Queryable, AuditMixinNullable):
         for metric in metrics:
             m = (
                 db.session.query(M)
-                .filter(M.metric_name == metric.metric_name)
-                .filter(M.table_id == self.id)
-                .first()
+                    .filter(M.metric_name == metric.metric_name)
+                    .filter(M.table_id == self.id)
+                    .first()
             )
             metric.table_id = self.id
             if not m:
@@ -1049,7 +1040,6 @@ class SqlaTable(Model, Queryable, AuditMixinNullable):
 
 
 class SqlMetric(Model, AuditMixinNullable):
-
     """ORM object for metrics, each table can have multiple metrics"""
 
     __tablename__ = 'sql_metrics'
@@ -1079,7 +1069,6 @@ class SqlMetric(Model, AuditMixinNullable):
 
 
 class TableColumn(Model, AuditMixinNullable):
-
     """ORM object for table columns, each table can have multiple columns"""
 
     __tablename__ = 'table_columns'
@@ -1146,7 +1135,7 @@ class TableColumn(Model, AuditMixinNullable):
         elif tf == 'epoch_s':
             return str((dttm - datetime(1970, 1, 1)).total_seconds())
         elif tf == 'epoch_ms':
-            return str((dttm - datetime(1970, 1, 1)).total_seconds()*1000.0)
+            return str((dttm - datetime(1970, 1, 1)).total_seconds() * 1000.0)
         else:
             default = "'{}'".format(dttm.strftime(tf))
             iso = dttm.isoformat()
@@ -1165,8 +1154,24 @@ class TableColumn(Model, AuditMixinNullable):
             return default
 
 
-class DruidCluster(Model, AuditMixinNullable):
+class CassandraCluster(Model, AuditMixinNullable):
+    """ORM object referencing the cassandra clusters"""
 
+    __tablename__ = 'cassandra_cluster'
+    id = Column(Integer, primary_key=True)
+    cluster_name = Column(String(250), unique=True)
+    contact_hosts = Column(String(250))
+    contact_port = Column(Integer, default=9042)
+
+    def __repr__(self):
+        return self.cluster_name
+
+    @property
+    def perm(self):
+        return "[{obj.cluster_name}].(id:{obj.id})".format(obj=self)
+
+
+class DruidCluster(Model, AuditMixinNullable):
     """ORM object referencing the Druid clusters"""
 
     __tablename__ = 'clusters'
@@ -1215,8 +1220,29 @@ class DruidCluster(Model, AuditMixinNullable):
         return "[{obj.cluster_name}].(id:{obj.id})".format(obj=self)
 
 
-class DruidDatasource(Model, AuditMixinNullable, Queryable):
+class CassandraDataSource(Model, AuditMixinNullable, Queryable):
+    """ORM object referencing Cassandra datasources (tables)"""
+    type = "cassandra"
+    baselink = "cassandradatasourcemodelview"
+    __tablename__ = "cassandra_datasources"
+    id = Column(Integer, primary_key=True)
+    # TODO: remove datasource_name, use keyspace and table instead
+    datasource_name = Column(String(255), unique=True)
+    is_featured = Column(Boolean, default=False)
+    is_hidden = Column(Boolean, default=False)
+    description = Column(Text)
+    user_id = Column(Integer, ForeignKey('ab_user.id'))
+    owner = relationship('User', backref='cassandra_datasources', foreign_keys=[user_id])
+    cluster_name = Column(String(250), ForeignKey('cassandra_cluster.cluster_name'))
+    # TODO: timezone offset, cache timeout
+    # cassandra
+    cassandra_keyspace = Column(String(250), nullable=False)
+    cassandra_table = Column(String(250), nullable=False)
+    # spark cluster
+    spark_uri = Column(String(250), nullable=False)
 
+
+class DruidDatasource(Model, AuditMixinNullable, Queryable):
     """ORM object referencing Druid datasources (tables)"""
 
     type = "druid"
@@ -1283,7 +1309,7 @@ class DruidDatasource(Model, AuditMixinNullable, Queryable):
         return [
             m.json_obj for m in self.metrics
             if m.metric_name == metric_name
-        ][0]
+            ][0]
 
     @staticmethod
     def version_higher(v1, v2):
@@ -1300,19 +1326,21 @@ class DruidDatasource(Model, AuditMixinNullable, Queryable):
         >>> DruidDatasource.version_higher('0.8.2', '0.9')
         False
         """
+
         def int_or_0(v):
             try:
                 v = int(v)
             except (TypeError, ValueError):
                 v = 0
             return v
+
         v1nums = [int_or_0(n) for n in v1.split('.')]
         v2nums = [int_or_0(n) for n in v2.split('.')]
         v1nums = (v1nums + [0, 0, 0])[:3]
         v2nums = (v2nums + [0, 0, 0])[:3]
         return v1nums[0] > v2nums[0] or \
-            (v1nums[0] == v2nums[0] and v1nums[1] > v2nums[1]) or \
-            (v1nums[0] == v2nums[0] and v1nums[1] == v2nums[1] and v1nums[2] > v2nums[2])
+               (v1nums[0] == v2nums[0] and v1nums[1] > v2nums[1]) or \
+               (v1nums[0] == v2nums[0] and v1nums[1] == v2nums[1] and v1nums[2] > v2nums[2])
 
     def latest_metadata(self):
         """Returns segment metadata from the latest segment"""
@@ -1345,7 +1373,7 @@ class DruidDatasource(Model, AuditMixinNullable, Queryable):
         session = db.session()
         datasource = (
             session.query(DruidDatasource)
-            .filter_by(
+                .filter_by(
                 datasource_name=druid_config['name'])
         ).first()
         # Create a new datasource.
@@ -1363,7 +1391,7 @@ class DruidDatasource(Model, AuditMixinNullable, Queryable):
         for dim in dimensions:
             col_obj = (
                 session.query(DruidColumn)
-                .filter_by(
+                    .filter_by(
                     datasource_name=druid_config['name'],
                     column_name=dim)
             ).first()
@@ -1394,7 +1422,7 @@ class DruidDatasource(Model, AuditMixinNullable, Queryable):
 
             metric_obj = (
                 session.query(DruidMetric)
-                .filter_by(
+                    .filter_by(
                     datasource_name=druid_config['name'],
                     metric_name=metric_name)
             ).first()
@@ -1434,9 +1462,9 @@ class DruidDatasource(Model, AuditMixinNullable, Queryable):
         for col in cols:
             col_obj = (
                 session
-                .query(DruidColumn)
-                .filter_by(datasource_name=name, column_name=col)
-                .first()
+                    .query(DruidColumn)
+                    .filter_by(datasource_name=name, column_name=col)
+                    .first()
             )
             datatype = cols[col]['type']
             if not col_obj:
@@ -1521,14 +1549,14 @@ class DruidDatasource(Model, AuditMixinNullable, Queryable):
             m.metric_name: m.json_obj
             for m in self.metrics
             if m.metric_name in all_metrics
-        }
+            }
 
         rejected_metrics = [
             m.metric_name for m in self.metrics
             if m.is_restricted and
             m.metric_name in aggregations.keys() and
             not sm.has_access('metric_access', m.perm)
-        ]
+            ]
 
         if rejected_metrics:
             raise MetricPermException(
@@ -1714,7 +1742,6 @@ class DruidDatasource(Model, AuditMixinNullable, Queryable):
 
 
 class Log(Model):
-
     """ORM object used to log Caravel actions to the database"""
 
     __tablename__ = 'logs'
@@ -1732,6 +1759,7 @@ class Log(Model):
     @classmethod
     def log_this(cls, f):
         """Decorator to log user actions"""
+
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
             user_id = None
@@ -1758,11 +1786,11 @@ class Log(Model):
             db.session.add(log)
             db.session.commit()
             return f(*args, **kwargs)
+
         return wrapper
 
 
 class DruidMetric(Model, AuditMixinNullable):
-
     """ORM object referencing Druid metrics for a datasource"""
 
     __tablename__ = 'metrics'
@@ -1799,7 +1827,6 @@ class DruidMetric(Model, AuditMixinNullable):
 
 
 class DruidColumn(Model, AuditMixinNullable):
-
     """ORM model for storing Druid datasource column metadata"""
 
     __tablename__ = 'columns'
@@ -1903,10 +1930,10 @@ class DruidColumn(Model, AuditMixinNullable):
         for metric in metrics:
             m = (
                 session.query(M)
-                .filter(M.metric_name == metric.metric_name)
-                .filter(M.datasource_name == self.datasource_name)
-                .filter(DruidCluster.cluster_name == self.datasource.cluster_name)
-                .first()
+                    .filter(M.metric_name == metric.metric_name)
+                    .filter(M.datasource_name == self.datasource_name)
+                    .filter(DruidCluster.cluster_name == self.datasource.cluster_name)
+                    .first()
             )
             metric.datasource_name = self.datasource_name
             if not m:
@@ -1938,7 +1965,6 @@ class QueryStatus:
 
 
 class Query(Model):
-
     """ORM model for SQL query"""
 
     __tablename__ = 'query'
@@ -2063,7 +2089,7 @@ class DatasourceAccessRequest(Model, AuditMixinNullable):
                 '/caravel/approve?datasource_type={self.datasource_type}&'
                 'datasource_id={self.datasource_id}&'
                 'created_by={self.created_by.username}&role_to_grant={r.name}'
-                .format(**locals())
+                    .format(**locals())
             )
             href = '<a href="{}">Grant {} Role</a>'.format(url, r.name)
             action_list = action_list + '<li>' + href + '</li>'
@@ -2077,7 +2103,7 @@ class DatasourceAccessRequest(Model, AuditMixinNullable):
                 '/caravel/approve?datasource_type={self.datasource_type}&'
                 'datasource_id={self.datasource_id}&'
                 'created_by={self.created_by.username}&role_to_extend={r.name}'
-                .format(**locals())
+                    .format(**locals())
             )
             href = '<a href="{}">Extend {} Role</a>'.format(url, r.name)
             if r.name in self.ROLES_BLACKLIST:
