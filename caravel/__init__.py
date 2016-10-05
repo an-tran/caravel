@@ -103,4 +103,4 @@ module_datasource_map = app.config.get("DEFAULT_MODULE_DS_MAP")
 module_datasource_map.update(app.config.get("ADDITIONAL_MODULE_DS_MAP"))
 SourceRegistry.register_sources(module_datasource_map)
 
-from caravel import views, config  # noqa
+from caravel import views, bl_views, config  # noqa

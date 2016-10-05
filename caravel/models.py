@@ -1158,23 +1158,6 @@ class TableColumn(Model, AuditMixinNullable):
             return default
 
 
-class CassandraCluster(Model, AuditMixinNullable):
-    """ORM object referencing the cassandra clusters"""
-
-    __tablename__ = 'cassandra_cluster'
-    id = Column(Integer, primary_key=True)
-    cluster_name = Column(String(250), unique=True)
-    contact_hosts = Column(String(250))
-    contact_port = Column(Integer, default=9042)
-
-    def __repr__(self):
-        return self.cluster_name
-
-    @property
-    def perm(self):
-        return "[{obj.cluster_name}].(id:{obj.id})".format(obj=self)
-
-
 class DruidCluster(Model, AuditMixinNullable):
     """ORM object referencing the Druid clusters"""
 
@@ -1223,28 +1206,6 @@ class DruidCluster(Model, AuditMixinNullable):
     @property
     def perm(self):
         return "[{obj.cluster_name}].(id:{obj.id})".format(obj=self)
-
-
-class CassandraDataSource(Model, AuditMixinNullable, Queryable):
-    """ORM object referencing Cassandra datasources (tables)"""
-    type = "cassandra"
-    baselink = "cassandradatasourcemodelview"
-    __tablename__ = "cassandra_datasources"
-    id = Column(Integer, primary_key=True)
-    # TODO: remove datasource_name, use keyspace and table instead
-    datasource_name = Column(String(255), unique=True)
-    is_featured = Column(Boolean, default=False)
-    is_hidden = Column(Boolean, default=False)
-    description = Column(Text)
-    user_id = Column(Integer, ForeignKey('ab_user.id'))
-    owner = relationship('User', backref='cassandra_datasources', foreign_keys=[user_id])
-    cluster_name = Column(String(250), ForeignKey('cassandra_cluster.cluster_name'))
-    # TODO: timezone offset, cache timeout
-    # cassandra
-    cassandra_keyspace = Column(String(250), nullable=False)
-    cassandra_table = Column(String(250), nullable=False)
-    # spark cluster
-    spark_uri = Column(String(250), nullable=False)
 
 
 class DruidDatasource(Model, AuditMixinNullable, Queryable):
