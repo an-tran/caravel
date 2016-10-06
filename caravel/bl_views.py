@@ -66,7 +66,7 @@ if config['CASSANDRA_IS_ACTIVE']:
 
 class RestServerModelView(CaravelModelView, DeleteMixin):
     datamodel = SQLAInterface(RestServerModel)
-    add_columns = [ 'server_name', 'server_url']
+    add_columns = ['server_name', 'server_url']
     edit_columns = add_columns
     list_columns = add_columns
 
@@ -126,3 +126,12 @@ if config['REST_SERVER_IS_ACTIVE']:
         category="Sources",
         category_label=__("Sources"),
         icon="fa-cube")
+
+if config['REST_SERVER_IS_ACTIVE']:
+    appbuilder.add_link(
+        "Refresh Rest Datasource Metadata",
+        href='/caravel/refresh_rest_datasources/',
+        category='Sources',
+        category_label=__("Sources"),
+        category_icon='fa-database',
+        icon="fa-cog")
