@@ -35,6 +35,7 @@ from caravel import (
     appbuilder, cache, db, models, viz, utils, app,
     sm, ascii_art, sql_lab
 )
+from caravel import bl_models
 from caravel.source_registry import SourceRegistry
 from caravel.models import DatasourceAccessRequest as DAR
 
@@ -2055,6 +2056,30 @@ class Caravel(BaseCaravelView):
                 'info')
         session.commit()
         return redirect("/druiddatasourcemodelview/list/")
+
+    @has_access
+    @expose("/refresh_rest_datasources/")
+    def refresh_datasources(self):
+        """endpoint that refreshes rest datasources metadata"""
+        session = db.session()
+        for server in session.query(bl_models.RestServerModel).all():
+            server_url = server.server_url
+            try:
+                server.refresh_datasources()
+            except Exception as e:
+                flash(
+                    "Error while processing cluster '{}'\n{}".format(
+                        server_url, utils.error_msg_from_exception(e)),
+                    "danger")
+                logging.exception(e)
+                return redirect('/restservermodelview/list/')
+            server.metadata_last_refreshed = datetime.now()
+            flash(
+                "Refreshed metadata from rest server "
+                "[" + server.server_url + "]",
+                'info')
+        session.commit()
+        return redirect("/restservermodelview/list/")
 
     @app.errorhandler(500)
     def show_traceback(self):

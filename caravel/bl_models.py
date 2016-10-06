@@ -1,4 +1,5 @@
 import json
+import logging
 
 import requests
 from flask.ext.appbuilder import Model
@@ -74,22 +75,31 @@ class RestServerModel(Model, AuditMixinNullable):
     def get_client(self, datasource):
         return RestClient(self, datasource)
 
+    def refresh_datasources(self):
+        session = get_session()
+        datasources = (session.query(RestDatasourceModel)
+                       .filter_by(server_url=self.server_url).all())
+        for d in datasources:
+            d.fetch_metadata()
 
-class RestClient:
-    METADATA_API_URL = '/api/datasource/{type}/{db}/{table}/meta'
+class RestClient(object):
+    METADATA_API_URL = '/api/datasources/{db_type}/{db}/{table}/meta'
 
     def __init__(self, server, datasource):
-        self.server_url = server.server_url
-        self.source_type = datasource.database_type
+        self.server_url = server.server_url.rstrip("/")
+        self.db_type = datasource.database_type
         self.db = datasource.database_name
         self.table = datasource.table_name
 
     def get_metadata(self):
-        url = "%s%s" % (self.server_url,
-                        self.METADATA_API_URL.format(self.source_type,
-                                                     self.db,
-                                                     self.table))
-        return requests.get(url).json()
+        url = "http://%s%s" % (self.server_url,
+                        self.METADATA_API_URL.format(**self.__dict__))
+        resp = requests.get(url)
+        if resp.ok:
+            logging.debug(resp.json())
+        else:
+            logging.error(resp.status_code, resp.reason)
+        return resp.json()
 
     def get_data(self):
         return None
@@ -132,13 +142,13 @@ class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
         """ Fetch metadata from Rest datasource and save to db as RestColums"""
         session = get_session()
         client = self.server.get_client(self)
-        meta = client.get_meta()
+        meta = client.get_metadata()
         cols = meta['columns']
         if not cols:
             return
         for col in cols:
             col_obj = (session.query(RestColum)
-                           .filter_by(datasource_id=self.id, column_name=cols)
+                           .filter_by(datasource_id=self.id, column_name=col)
                            .first())
             datatype = cols[col]['type']
             if not col_obj:
@@ -168,7 +178,7 @@ class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
             select=None,
             columns=None):
         """Call rest api to get data from server"""
-        print "Query data from server %s/%s" % (self.server.server_url, self.api_endpoint)
+        logging.info("Query data from server %s/%s" % (self.server.server_url, self.api_endpoint))
 
         return None
 
@@ -267,12 +277,12 @@ class RestColum(Model, AuditMixinNullable):
                     .filter(M.metric_name == metric.metric_name)
                     .filter(M.datasource_id == self.datasource_id)
                     .filter(RestServerModel.server_url == self.datasource.server_url)
-            )
+                    .first())
             metric.datasource_id = self.datasource_id
             if not m:
                 new_metrics.append(metric)
                 session.add(metric)
-                session.flush
+                session.flush()
 
         utils.init_metrics_perm(caravel, new_metrics)
 
