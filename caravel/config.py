@@ -171,7 +171,7 @@ DRUID_DATA_SOURCE_BLACKLIST = []
 # Modules and datasources to be registered
 # --------------------------------------------------
 DEFAULT_MODULE_DS_MAP = {'caravel.models': ['DruidDatasource', 'SqlaTable']}
-ADDITIONAL_MODULE_DS_MAP = {}
+ADDITIONAL_MODULE_DS_MAP = {'caravel.bl_models': ['RestDatasourceModel']}
 
 
 """

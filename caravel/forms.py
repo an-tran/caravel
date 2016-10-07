@@ -424,6 +424,17 @@ class FormFactory(object):
                     "filter below is applied against this column or "
                     "expression")
             }),
+            'granularity_rest': (SelectField, {
+                "label": _("Time Column"),
+                "default": datasource.main_dttm_col or datasource.any_dttm_col,
+                "choices": self.choicify(datasource.dttm_cols),
+                "description": _(
+                    "The time column for the visualization. Note that you "
+                    "can define arbitrary expression that return a DATETIME "
+                    "column in the table editor. Also note that the "
+                    "filter below is applied against this column or "
+                    "expression")
+            }),
             'resample_rule': (FreeFormSelectField, {
                 "label": _("Resample Rule"),
                 "default": '',
@@ -1059,6 +1070,11 @@ class FormFactory(object):
             having_op_choices = self.choicify(
                 ['==', '!=', '>', '<', '>=', '<='])
             filter_prefixes += ['having']
+        elif datasource_classname == 'RestDatasourceModel': #antt
+            time_fields = ('granularity_rest', 'granularity')
+            add_to_form(time_fields)
+            field_css_classes['granularity_rest'] = ['form-control', 'select2_freeform']
+            field_css_classes['granularity'] = ['form-control', 'select2_freeform']
         add_to_form(('since', 'until'))
 
         # filter_cols defaults to ''. Filters with blank col will be ignored

@@ -35,7 +35,7 @@ from caravel.source_registry import SourceRegistry
 from caravel.models import DatasourceAccessRequest as DAR
 from caravel.views import CaravelModelView, DeleteMixin, ListWidgetWithCheckboxes
 
-from caravel.bl_models import RestServerModel, RestDatasourceModel, CassandraCluster
+from caravel.bl_models import RestServerModel, RestDatasourceModel, CassandraCluster, RestColumn, RestMetric
 
 config = app.config
 log_this = models.Log.log_this
@@ -81,6 +81,72 @@ if config['REST_SERVER_IS_ACTIVE']:
                         category_label=__("Sources"),
                         category_icon='fa-database')
 
+
+class RestColumnInlineView(CompactCRUDMixin, CaravelModelView):
+    datamodel = SQLAInterface(RestColumn)
+    edit_columns = ['column_name', 'description', 'datasource', 'groupby',
+                     'count_distinct', 'sum', 'min', 'max', 'is_dttm']
+    list_columns = ['column_name', 'type', 'groupby', 'filterable', 'count_distinct',
+                     'sum', 'min', 'max', 'is_dttm']
+    can_delete = False
+    page_size = 500
+    label_columns = label_columns = {
+        'column_name': _("Column"),
+        'type': _("Type"),
+        'datasource': _("Datasource"),
+        'groupby': _("Groupable"),
+        'filterable': _("Filterable"),
+        'count_distinct': _("Count Distinct"),
+        'sum': _("Sum"),
+        'min': _("Min"),
+        'max': _("Max"),
+        'is_dttm': _("Is temporal"),
+    }
+    description_columns = {
+        'is_dttm': (_(
+            "Whether to make this column available as a "
+            "[Time Granularity] option, column has to be DATETIME or "
+            "DATETIME-like")),
+    }
+
+    def post_update(self, col):
+        col.generate_metrics()
+
+appbuilder.add_view_no_menu(RestColumnInlineView)
+
+
+class RestMetricInlineView(CompactCRUDMixin, CaravelModelView):
+    datamodel = SQLAInterface(RestMetric)
+    list_columns = ['metric_name', 'verbose_name', 'metric_type']
+    edit_columns = [
+        'metric_name', 'description', 'verbose_name', 'metric_type', 'json',
+        'datasource', 'd3format', 'is_restricted']
+    add_columns = edit_columns
+    page_size = 500
+    description_columns = {
+        'is_restricted': _("Whether the access to this metric is restricted "
+                           "to certain roles. Only roles with the permission "
+                           "'metric access on XXX (the name of this metric)' "
+                           "are allowed to access this metric"),
+    }
+    label_columns = {
+        'metric_name': _("Metric"),
+        'description': _("Description"),
+        'verbose_name': _("Verbose Name"),
+        'metric_type': _("Type"),
+        'json': _("JSON"),
+        'datasource': _("Rest Datasource"),
+    }
+
+    def post_add(self, metric):
+        utils.init_metrics_perm(caravel, [metric])
+
+    def post_update(self, metric):
+        utils.init_metrics_perm(caravel, [metric])
+
+appbuilder.add_view_no_menu(RestMetricInlineView)
+
+
 class RestDatasourceModelView(CaravelModelView, DeleteMixin):
     datamodel = SQLAInterface(RestDatasourceModel)
     list_widget = ListWidgetWithCheckboxes
@@ -113,6 +179,7 @@ class RestDatasourceModelView(CaravelModelView, DeleteMixin):
         'database_name': _("Database Name"),
         'table_type': _("Table Name"),
     }
+    related_views = [RestColumnInlineView, RestMetricInlineView]
 
     # TODO: post_add, post_update
 
@@ -135,3 +202,4 @@ if config['REST_SERVER_IS_ACTIVE']:
         category_label=__("Sources"),
         category_icon='fa-database',
         icon="fa-cog")
+

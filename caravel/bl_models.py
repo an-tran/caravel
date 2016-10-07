@@ -68,6 +68,7 @@ class RestServerModel(Model, AuditMixinNullable):
     id = Column(Integer, primary_key=True)
     server_name = Column(String(250), unique=True)
     server_url = Column(String(250), unique=True)
+    cache_timeout = Column(Integer)
 
     def __repr__(self):
         return "{}".format(self.server_url)
@@ -81,6 +82,11 @@ class RestServerModel(Model, AuditMixinNullable):
                        .filter_by(server_url=self.server_url).all())
         for d in datasources:
             d.fetch_metadata()
+
+    @property
+    def perm(self):
+        return "[{obj.server_url}].(id:{obj.id})".format(obj=self)
+
 
 class RestClient(object):
     METADATA_API_URL = '/api/datasources/{db_type}/{db}/{table}/meta'
@@ -127,6 +133,9 @@ class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
     server_url = Column(String(250), ForeignKey('rest_server.server_url'))
     server = relationship('RestServerModel', backref='rest_datasources', foreign_keys=[server_url])
 
+    def __repr__(self):
+        return "{}.{}.{}".format(self.database_type, self.database_name, self.table_name)
+
     @renders('database_name')
     def datasource_link(self):
         url = "/caravel/explore/{obj.type}/{obj.id}/".format(obj=self)
@@ -135,11 +144,49 @@ class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
 
     @property
     def full_name(self):
-        return ("[{obj.database_name}]."
+        return ("[{obj.database_type}]."
+                "[{obj.database_name}]."
                 "[{obj.table_name}]").format(obj=self)
 
+    @property
+    def metrics_combo(self):
+        return sorted([(m.metric_name, m.verbose_name) for m in self.metrics],
+                      key=lambda x: x[1])
+
+    @property
+    def database(self):
+        return self.server
+
+    @property
+    def num_cols(self):
+        return [c.column_name for c in self.columns if c.isnum]
+
+    @property
+    def name(self):
+        return self.table_name
+
+    @property
+    def default_endpoint(self):
+        return ""
+
+    @property
+    def perm(self):
+        return (
+            "[{obj.server_url}].[{obj.full_name}]"
+            "(id:{obj.id})").format(obj=self)
+
+    @property
+    def dttm_cols(self):
+        return [c.column_name for c in self.columns if c.is_dttm]
+
+    @property
+    def any_dttm_col(self):
+        cols = self.dttm_cols
+        if cols:
+            return cols[0]
+
     def fetch_metadata(self):
-        """ Fetch metadata from Rest datasource and save to db as RestColums"""
+        """ Fetch metadata from Rest datasource and save to db as RestColumns"""
         session = get_session()
         client = self.server.get_client(self)
         meta = client.get_metadata()
@@ -147,26 +194,28 @@ class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
         if not cols:
             return
         for col in cols:
-            col_obj = (session.query(RestColum)
+            col_obj = (session.query(RestColumn)
                            .filter_by(datasource_id=self.id, column_name=col)
                            .first())
             datatype = cols[col]['type']
             if not col_obj:
-                col_obj = RestColum(datasource_id=self.id, column_name=col)
+                col_obj = RestColumn(datasource_id=self.id, column_name=col)
                 session.add(col_obj)
             if datatype == "STRING":
                 col_obj.groupby = True
                 col_obj.filterable = True
+            if (datatype == "DATETIME") or (datatype == "LONG" and cols[col]['isDateTime']):
+                col_obj.is_dttm = True
+
             col_obj.type = cols[col]['type']
             session.flush()
             col_obj.datasource = self
-            # TODO generate metrics
             col_obj.generate_metrics()
             session.flush()
 
     def query(
             self, groupby, metrics,
-            granulariy,
+            granularity,
             from_dttm, to_dttm,
             filter=None,
             is_timeseries=True,
@@ -183,7 +232,7 @@ class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
         return None
 
 
-class RestColum(Model, AuditMixinNullable):
+class RestColumn(Model, AuditMixinNullable):
     """ORM model for storing rest datasource column metadata"""
 
     __tablename__ = 'rest_colums'
@@ -201,7 +250,8 @@ class RestColum(Model, AuditMixinNullable):
     max = Column(Boolean, default=False)
     min = Column(Boolean, default=False)
     filterable = Column(Boolean, default=False)
-    desciption = Column(Text)
+    description = Column(Text)
+    is_dttm = Column(Boolean, default=False)
 
     def __repr__(self):
         return self.column_name
