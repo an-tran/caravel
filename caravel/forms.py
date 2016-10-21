@@ -1071,10 +1071,22 @@ class FormFactory(object):
                 ['==', '!=', '>', '<', '>=', '<='])
             filter_prefixes += ['having']
         elif datasource_classname == 'RestDatasourceModel': #antt
-            time_fields = ('granularity_rest', 'granularity')
+            grains = viz.datasource.grains()
+            grains_choices = [(grain.name, grain.label) for grain in grains]
+            time_fields = ('granularity_sqla', 'time_grain_sqla')
+            self.field_dict['time_grain_sqla'] = SelectField(
+                _('Time Grain'),
+                choices=grains_choices,
+                default="Time Column",
+                description=_(
+                    "The time granularity for the visualization. This "
+                    "applies a date transformation to alter "
+                    "your time column and defines a new time granularity."
+                    "The options here are defined on a per database "
+                    "engine basis in the Caravel source code"))
             add_to_form(time_fields)
-            field_css_classes['granularity_rest'] = ['form-control', 'select2_freeform']
-            field_css_classes['granularity'] = ['form-control', 'select2_freeform']
+            field_css_classes['granularity_sqla'] = ['form-control', 'select2_freeform']
+            field_css_classes['time_grain_sqla'] = ['form-control', 'select2_freeform']
         add_to_form(('since', 'until'))
 
         # filter_cols defaults to ''. Filters with blank col will be ignored

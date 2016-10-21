@@ -181,8 +181,12 @@ class RestDatasourceModelView(CaravelModelView, DeleteMixin):
     }
     related_views = [RestColumnInlineView, RestMetricInlineView]
 
-    # TODO: post_add, post_update
+    def post_add(self, datasource):
+        datasource.fetch_metadata()
+        utils.merge_perm(sm, 'datasource_access', datasource.perm)
 
+    def post_update(self, datasource):
+        self.post_add(datasource)
 
 
 if config['REST_SERVER_IS_ACTIVE']:

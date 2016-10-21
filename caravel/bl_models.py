@@ -1,6 +1,10 @@
+import calendar
 import json
 import logging
+from collections import namedtuple
 
+from datetime import datetime
+import pandas
 import requests
 from flask.ext.appbuilder import Model
 from sqlalchemy import Boolean
@@ -14,7 +18,7 @@ from sqlalchemy.orm import relationship
 import caravel
 from caravel import get_session
 from caravel import utils
-from caravel.models import AuditMixinNullable, Queryable
+from caravel.models import AuditMixinNullable, Queryable, QueryResult
 
 from flask import escape, g, Markup, request
 from flask_appbuilder import Model
@@ -40,26 +44,26 @@ class CassandraCluster(Model, AuditMixinNullable):
         return "[{obj.cluster_name}].(id:{obj.id})".format(obj=self)
 
 
-class CassandraDataSource(Model, AuditMixinNullable, Queryable):
-    """ORM object referencing Cassandra datasources (tables)"""
-    type = "cassandra"
-    baselink = "cassandradatasourcemodelview"
-    __tablename__ = "cassandra_datasources"
-    id = Column(Integer, primary_key=True)
-    # TODO: remove datasource_name, use keyspace and table instead
-    datasource_name = Column(String(255), unique=True)
-    is_featured = Column(Boolean, default=False)
-    is_hidden = Column(Boolean, default=False)
-    description = Column(Text)
-    user_id = Column(Integer, ForeignKey('ab_user.id'))
-    owner = relationship('User', backref='cassandra_datasources', foreign_keys=[user_id])
-    cluster_name = Column(String(250), ForeignKey('cassandra_cluster.cluster_name'))
-    # TODO: timezone offset, cache timeout
-    # cassandra
-    cassandra_keyspace = Column(String(250), nullable=False)
-    cassandra_table = Column(String(250), nullable=False)
-    # spark cluster
-    spark_uri = Column(String(250), nullable=False)
+# class CassandraDataSource(Model, AuditMixinNullable, Queryable):
+#     """ORM object referencing Cassandra datasources (tables)"""
+#     type = "cassandra"
+#     baselink = "cassandradatasourcemodelview"
+#     __tablename__ = "cassandra_datasources"
+#     id = Column(Integer, primary_key=True)
+#     #: remove datasource_name, use keyspace and table instead
+#     datasource_name = Column(String(255), unique=True)
+#     is_featured = Column(Boolean, default=False)
+#     is_hidden = Column(Boolean, default=False)
+#     description = Column(Text)
+#     user_id = Column(Integer, ForeignKey('ab_user.id'))
+#     owner = relationship('User', backref='cassandra_datasources', foreign_keys=[user_id])
+#     cluster_name = Column(String(250), ForeignKey('cassandra_cluster.cluster_name'))
+#     #: timezone offset, cache timeout
+#     # cassandra
+#     cassandra_keyspace = Column(String(250), nullable=False)
+#     cassandra_table = Column(String(250), nullable=False)
+#     # spark cluster
+#     spark_uri = Column(String(250), nullable=False)
 
 
 class RestServerModel(Model, AuditMixinNullable):
@@ -89,7 +93,7 @@ class RestServerModel(Model, AuditMixinNullable):
 
 
 class RestClient(object):
-    METADATA_API_URL = '/api/datasources/{db_type}/{db}/{table}/meta'
+    API_URL = '/api/datasources/{db_type}/{db}/{table}'
 
     def __init__(self, server, datasource):
         self.server_url = server.server_url.rstrip("/")
@@ -97,10 +101,18 @@ class RestClient(object):
         self.db = datasource.database_name
         self.table = datasource.table_name
 
+    def get_access_token_temp(self):
+        url = "http://%s/login" % (self.server_url)
+        resp = requests.post(url, data={"username": "admin", "password": "admin"})
+        if resp.ok:
+            return resp.json()['jwtToken']
+
+
     def get_metadata(self):
-        url = "http://%s%s" % (self.server_url,
-                        self.METADATA_API_URL.format(**self.__dict__))
-        resp = requests.get(url)
+        url = "http://%s%s/meta" % (self.server_url,
+                        self.API_URL.format(**self.__dict__))
+        access_token = self.get_access_token_temp()
+        resp = requests.get(url, headers={"Authorization": access_token})
         if resp.ok:
             logging.debug(resp.json())
         else:
@@ -109,6 +121,71 @@ class RestClient(object):
 
     def get_data(self):
         return None
+
+    def getDataframe(self, reqparams):
+        url = "http://%s%s" % (self.server_url,
+                                    self.API_URL.format(**self.__dict__))
+        resp = requests.get(url.rstrip("/"),
+                            params=reqparams,
+                            headers={"Authorization": self.get_access_token_temp()})
+        # TODO: json to df
+        print resp.reason
+        result = resp.json()
+        self.result = result['result']
+        self.query_type = result['query_type']
+        return self.export_pandas()
+
+    def export_pandas(self):
+        """
+        Export the current query result to a Pandas DataFrame object.
+
+        :return: The DataFrame representing the query result
+        :rtype: DataFrame
+        :raise NotImplementedError:
+
+        Example
+
+        .. code-block:: python
+            :linenos:
+
+                >>> top = client.topn(
+                        datasource='twitterstream',
+                        granularity='all',
+                        intervals='2013-10-04/pt1h',
+                        aggregations={"count": doublesum("count")},
+                        dimension='user_name',
+                        filter = Dimension('user_lang') == 'en',
+                        metric='count',
+                        threshold=2
+                    )
+
+                >>> df = top.export_pandas()
+                >>> print df
+                >>>    count                 timestamp      user_name
+                    0      7  2013-10-04T00:00:00.000Z         user_1
+                    1      6  2013-10-04T00:00:00.000Z         user_2
+        """
+        if self.result:
+            if self.query_type == "timeseries":
+                nres = [list(v['result'].items()) + [('timestamp', v['timestamp'])]
+                        for v in self.result]
+                nres = [dict(v) for v in nres]
+            elif self.query_type == "topN":
+                nres = []
+                for item in self.result:
+                    timestamp = item['timestamp']
+                    results = item['result']
+                    tres = [dict(list(res.items()) + [('timestamp', timestamp)])
+                            for res in results]
+                    nres += tres
+            elif self.query_type == "groupby":
+                nres = [list(v.items()) for v in self.result]
+                nres = [dict(v) for v in nres]
+            else:
+                raise NotImplementedError('Pandas export not implemented for query type: {0}'.format(self.query_type))
+
+            df = pandas.DataFrame(nres)
+            return df
 
 
 class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
@@ -185,6 +262,16 @@ class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
         if cols:
             return cols[0]
 
+    def grains(self):
+        Grain = namedtuple('Grain', 'name label function')
+        grains = (
+            Grain('Time Column', _('Time Column'), '{col}'),
+            Grain('hour', _('hour'), '{col}'),
+            Grain('day', _('day'), '{col}'),
+            Grain('month', _('month'), '{col}')
+        )
+        return grains
+
     def fetch_metadata(self):
         """ Fetch metadata from Rest datasource and save to db as RestColumns"""
         session = get_session()
@@ -199,15 +286,15 @@ class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
                            .first())
             datatype = cols[col]['type']
             if not col_obj:
-                col_obj = RestColumn(datasource_id=self.id, column_name=col)
+                col_obj = RestColumn(datasource_id=self.id, column_name=col, type=cols[col]['type'])
                 session.add(col_obj)
+                col_obj.sum = col_obj.isnum
             if datatype == "STRING":
                 col_obj.groupby = True
                 col_obj.filterable = True
-            if (datatype == "DATETIME") or (datatype == "LONG" and cols[col]['isDateTime']):
+            if (cols[col].get('isDateTime', None)) or (datatype == "DATETIME") or (datatype == "TIMESTAMP"):
                 col_obj.is_dttm = True
 
-            col_obj.type = cols[col]['type']
             session.flush()
             col_obj.datasource = self
             col_obj.generate_metrics()
@@ -227,9 +314,34 @@ class RestDatasourceModel(Model, AuditMixinNullable, Queryable):
             select=None,
             columns=None):
         """Call rest api to get data from server"""
+        qry_start_dttm = datetime.now()
         logging.info("Query data from server %s/%s" % (self.server.server_url, self.api_endpoint))
-
-        return None
+        reqparams = {
+            'granularity': granularity,
+            'groupby': groupby,
+            'metrics': metrics,
+            'from_dttm': calendar.timegm(from_dttm.timetuple()) * 1000,
+            'to_dttm': calendar.timegm(to_dttm.timetuple()) * 1000,
+            'filter': filter,
+            'is_timeseries': is_timeseries,
+            'row_limit': row_limit,
+            'orderby': orderby,
+            'select': select,
+            'columns': columns
+        }
+        reqparams.update(extras)
+        restClient = RestClient(self.server, self)
+        df = restClient.getDataframe(reqparams)
+        cols = []
+        if 'timestamp' in df.columns:
+            cols += ['timestamp']
+        cols += [col for col in groupby if col in df.columns]
+        cols += [col for col in metrics if col in df.columns]
+        df = df[cols]
+        return QueryResult(
+            df=df,
+            query="",
+            duration=datetime.now() - qry_start_dttm)
 
 
 class RestColumn(Model, AuditMixinNullable):
@@ -258,7 +370,7 @@ class RestColumn(Model, AuditMixinNullable):
 
     @property
     def isnum(self):
-        return self.type in ('LONG', 'DOUBLE', 'FLOAT', 'INT')
+        return self.type in ('LONG', 'DOUBLE', 'FLOAT', 'INT', 'BIGINT', 'DECIMAL', 'VARINT', 'COUNTER')
 
     def generate_metrics(self):
         """Generate metric from column metadata and save to db"""
